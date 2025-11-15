@@ -1,0 +1,12 @@
+{
+  "max_words": 10000,
+  "max_sequence_length": 10,
+  "embedding_dim": 128,
+  "vocab_size": 2680,
+  "test_accuracy": 0.9396274887604368,
+  "sentiment_map": {
+    "0": "negative",
+    "1": "neutral",
+    "2": "positive"
+  }
+}
