@@ -4,13 +4,14 @@ from datetime import datetime, date
 from typing import Optional, Tuple
 from pathlib import Path
 import os
+from config import dataset_name, data_dir
 
 
 class CommodityDataAnalyzer:
     def __init__(
         self,
-        dataset_name: str = "SaguaroCapital/sentiment-analysis-in-commodity-market-gold",
-        save_dir: str = "data/commodity_data.csv",
+        dataset_name: str = dataset_name,
+        save_dir: str = data_dir,
     ):
         self.dataset_name = dataset_name
         self.save_dir = Path(save_dir)

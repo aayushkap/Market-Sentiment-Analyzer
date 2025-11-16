@@ -5,10 +5,11 @@ import re
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from pathlib import Path
+from config import model_dir
 
 
 class SentimentClassifier:
-    def __init__(self, model_dir="model"):
+    def __init__(self, model_dir=f"{model_dir}/classifier"):
 
         self.model_dir = Path(model_dir)
         self.model = None
@@ -23,6 +24,7 @@ class SentimentClassifier:
         config_path = self.model_dir / "lstm_config.json"
         tokenizer_path = self.model_dir / "lstm_tokenizer.pkl"
         model_path = self.model_dir / "lstm_sentiment_model.keras"
+        
 
         with open(config_path, "r") as f:
             self.config = json.load(f)
@@ -32,7 +34,7 @@ class SentimentClassifier:
 
         self.model = tf.keras.models.load_model(model_path)
 
-    @staticmethod # does not need class instance
+    @staticmethod  # called out of class instance
     def clean_text(text):
         """
         clean and preprocess text
@@ -84,6 +86,7 @@ class SentimentClassifier:
         )
 
         # no python loops during inference means large batches can be processed instantly
+        # (after padding otherwise tensor shape mismatch)
         pred_probas = self.model.predict(padded, verbose=0)
 
         results = []

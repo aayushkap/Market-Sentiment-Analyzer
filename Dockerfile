@@ -6,8 +6,12 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 COPY requirements.txt .
 
+# splitting heavy deps for better caching
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install -v --system -r requirements.txt
+    uv pip install --system tensorflow-cpu==2.20.0
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system -r requirements.txt
 
 COPY . .
 

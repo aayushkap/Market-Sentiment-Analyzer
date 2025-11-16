@@ -5,17 +5,14 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from config import page_title, use_llm, llm_model_name
 
 
-
-st.set_page_config(page_title="Gold Sentiment Analyzer", layout="wide")
-st.title("Gold Sentiment Analyzer")
+st.set_page_config(page_title=page_title, layout="wide")
+st.title(page_title)
 
 
 def add_line_chart(daily_actual, daily_predicted, smooth):
-    """
-    function to add sentiment line chart over time
-    """
     num_days = len(daily_actual)
     if smooth:
         if num_days > 480:
@@ -97,9 +94,6 @@ def add_line_chart(daily_actual, daily_predicted, smooth):
 
 
 def add_pie_charts(filtered_df):
-    """
-    pie charts
-    """
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Actual sentiment distribution")
@@ -109,7 +103,7 @@ def add_pie_charts(filtered_df):
                 go.Pie(
                     labels=actual_counts.index,
                     values=actual_counts.values,
-                    marker=dict(colors=["#EF476F", "#FFD166", "#06D6A0"]),
+                    marker=dict(colors=["#06D6A0", "#EF476F", "#FFD166"]),
                     hole=0.4,
                 )
             ]
@@ -125,7 +119,7 @@ def add_pie_charts(filtered_df):
                 go.Pie(
                     labels=predicted_counts.index,
                     values=predicted_counts.values,
-                    marker=dict(colors=["#EF476F", "#FFD166", "#06D6A0"]),
+                    marker=dict(colors=["#06D6A0", "#EF476F", "#FFD166"]),
                     hole=0.4,
                 )
             ]
@@ -135,9 +129,6 @@ def add_pie_charts(filtered_df):
 
 
 def add_results_table(filtered_df):
-    """
-    results table
-    """
     st.subheader("Row wise prediction details")
     display_df = filtered_df[
         [
@@ -170,9 +161,6 @@ def add_results_table(filtered_df):
 
 
 def add_confusion_matrix(filtered_df, labels):
-    """
-    accordian cm
-    """
     with st.expander("Confusion matrix"):
         cm = confusion_matrix(
             filtered_df["Price Sentiment"],
@@ -194,8 +182,7 @@ def add_confusion_matrix(filtered_df, labels):
         st.plotly_chart(fig_cm, use_container_width=True)
 
 
-with st.spinner("Loading models & heavy resources..."):
-    
+with st.spinner("Loading sentiment classifier..."):
     from data_analyzer import CommodityDataAnalyzer
     from sentiment_classifier import SentimentClassifier
 
@@ -205,11 +192,28 @@ with st.spinner("Loading models & heavy resources..."):
 
     @st.cache_resource
     def load_classifier():
-        return SentimentClassifier(model_dir="model")
+        return SentimentClassifier()
+
+
+if use_llm:
+    with st.spinner(
+        f"Loading LLM {llm_model_name} (will download if not already installed)..."
+    ):
+        from llm_summarizer import LLMSummarizer
+
+        @st.cache_resource
+        def load_llm():
+            try:
+                return LLMSummarizer()
+            except Exception as e:
+                st.warning(f"Unable to load LLM: {str(e)}")
+                return None
 
 
 analyzer = load_data()
 classifier = load_classifier()
+if use_llm:
+    llm = load_llm()
 
 st.sidebar.header("Date Range Selection")
 
@@ -228,7 +232,7 @@ end_date = st.sidebar.date_input(
     "End Date", value=max_date, min_value=min_date, max_value=max_date
 )
 
-if st.sidebar.button("Analyze", type="primary"):
+if st.sidebar.button("Analyze Sentiment", type="primary"):
     if start_date > end_date:
         st.error("Start date must be before end date")
     else:
@@ -254,6 +258,9 @@ if st.sidebar.button("Analyze", type="primary"):
 
             st.session_state.filtered_df = filtered_df
             st.session_state.has_results = True
+            st.session_state.needs_summary = use_llm and llm
+            st.session_state.cached_summary = None
+
 
 if st.session_state.get("has_results", False):
     filtered_df = st.session_state.filtered_df
@@ -287,18 +294,100 @@ if st.session_state.get("has_results", False):
     )
     daily_predicted.columns = ["Date", "avg_sentiment"]
 
-    st.subheader("Actual vs predicted trend") 
-    smooth = st.toggle("Show averages", value=False)
+    st.subheader("Actual vs predicted trend")
+    smooth = st.toggle("Group dates", value=False, key="smooth_toggle")
     add_line_chart(daily_actual, daily_predicted, smooth)
+
+    st.subheader("AI-Generated Summary")
+
+    if st.session_state.get("needs_summary"):
+        st.session_state.needs_summary = False
+        total_headlines = len(filtered_df)
+        date_range = f"{filtered_df['Dates'].min():%Y-%m-%d} to {filtered_df['Dates'].max():%Y-%m-%d}"
+
+        sentiment_counts = filtered_df["Price Sentiment"].value_counts()
+        positive_pct = (sentiment_counts.get("positive", 0) / total_headlines) * 100
+        negative_pct = (sentiment_counts.get("negative", 0) / total_headlines) * 100
+        neutral_pct = (sentiment_counts.get("neutral", 0) / total_headlines) * 100
+
+        filtered_df_sorted = filtered_df.sort_values("Dates").reset_index(drop=True)
+        total_rows = len(filtered_df_sorted)
+
+        indices = [int(i * (total_rows - 1) / 5) for i in range(6)]
+        samples = []
+
+        for idx in indices:
+            row = filtered_df_sorted.iloc[idx]
+            date_str = row["Dates"].strftime("%b %Y")
+            sentiment = row["Price Sentiment"]
+            headline = row["News"][:80]
+            samples.append(f"{date_str} ({sentiment}): {headline}")
+
+        sample_text = "\n".join(samples)
+
+        prompt_text = f"""
+Summarize gold market sentiment from {date_range}.
+
+Data: {total_headlines} headlines - {positive_pct:.0f}% positive, {negative_pct:.0f}% negative, {neutral_pct:.0f}% neutral
+
+Key headlines:
+{sample_text}
+
+Write 2-3 sentences describing the overall trend."""
+
+        summary_placeholder = st.empty()
+        full_summary = ""
+        sentence_count = 0
+
+        for token in llm.summarize_stream(
+            prompt=prompt_text,
+            max_tokens=128,
+            temperature=0.6,
+            repetition_penalty=1.15,
+        ):
+            full_summary += token
+            summary_placeholder.markdown(full_summary + "▌")
+
+        stop_phrases = [
+            "You are",
+            "I am",
+            "As an",
+            "This summary",
+            "In summary",
+            "The summary",
+            "Here is",
+            "Based on",
+        ]
+
+        for phrase in stop_phrases:
+            if phrase in full_summary:
+                full_summary = full_summary.split(phrase)[0].strip()
+                break
+
+        if full_summary and not full_summary[-1] in [".", "!", "?"]:
+            last_period = full_summary.rfind(".")
+            last_exclamation = full_summary.rfind("!")
+            last_question = full_summary.rfind("?")
+            last_punct = max(last_period, last_exclamation, last_question)
+
+            if last_punct > 0:
+                full_summary = full_summary[: last_punct + 1]
+            else:
+                full_summary += "."
+
+        summary_placeholder.markdown(full_summary)
+        st.session_state.cached_summary = full_summary
+        st.session_state.needs_summary = False
+
+    elif st.session_state.get("cached_summary"):
+        st.markdown(st.session_state.cached_summary)
 
     add_pie_charts(filtered_df)
     add_results_table(filtered_df)
     add_confusion_matrix(filtered_df, labels)
 
 else:
-    st.info(
-        "Select a date range and press 'Analyze' to view the sentiments for that time range"
-    )
+    st.info("Select a date range and press 'Analyze' to view the sentiments")
 
     col1, col2, col3 = st.columns(3)
     with col1:
