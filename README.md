@@ -13,8 +13,7 @@ This project combines a custom-trained LSTM sentiment classifier with an interac
 **Source**: [SaguaroCapital/sentiment-analysis-in-commodity-market-gold](https://huggingface.co/datasets/SaguaroCapital/sentiment-analysis-in-commodity-market-gold)
 
 - **Total headlines**: 8,456
-- **Date range**: 2007-2019
-- **Classes**: 3 (positive, negative, neutral)
+- **Classes**: 4 (positive, negative, neutral, none)
 
 ### Data Preprocessing & Analysis
 
@@ -29,7 +28,7 @@ To determine the optimal text sequence length for the LSTM, analyzed headline le
 - **Average length**: 8.2 words
 - **90th percentile**: 11.0 words
 - **Max length**: 18 words
-- **Max sequence length**: Set to 80th percentile (~15 words) to capture most headlines efficiently
+- **Max sequence length**: Set to 80th percentile (~10 words) to capture most headlines efficiently
 
 **Class Balance Analysis**
 
@@ -38,6 +37,7 @@ To determine the optimal text sequence length for the LSTM, analyzed headline le
 Data cleaning and preprocessing steps:
 
 - Removed duplicates and null values
+- Removed rows with 'none' sentiment
 - Standardized text formatting
 - Tokenization, stopword removal and text padding
 - Balanced class distribution to reduce model bias
