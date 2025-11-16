@@ -2,6 +2,10 @@
 
 A machine learning powered application that analyzes gold market sentiment from news headlines using an LSTM neural network. The app provides real-time sentiment predictions, trend visualizations, and optional AI-generated sentiment summaries.
 
+![Application UI](./UI.png)
+
+
+
 ## Overview
 
 This project combines a custom-trained LSTM sentiment classifier with an interactive Streamlit dashboard to analyze gold market news. Users can filter data by date range, view prediction accuracy metrics, and optionally enable a local LLM to generate natural language summaries of market trends.
