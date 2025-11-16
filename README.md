@@ -12,7 +12,7 @@ This project combines a custom-trained LSTM sentiment classifier with an interac
 
 **Source**: [SaguaroCapital/sentiment-analysis-in-commodity-market-gold](https://huggingface.co/datasets/SaguaroCapital/sentiment-analysis-in-commodity-market-gold)
 
-- **Total headlines**: 8,456
+- **Total rows**: 10,570
 - **Classes**: 4 (positive, negative, neutral, none)
 
 ### Data Preprocessing & Analysis
@@ -37,12 +37,19 @@ To determine the optimal text sequence length for the LSTM, analyzed headline le
 Data cleaning and preprocessing steps:
 
 - Removed duplicates and null values
-- Removed rows with 'none' sentiment
+- Removed rows with 'none' sentiment (2,786 samples)
 - Standardized text formatting
 - Tokenization, stopword removal and text padding
 - Balanced class distribution to reduce model bias
 
 For detailed preprocessing code and additional visualizations, see the [training notebook](./notebook/LSTM_Sentiment_Analysis.ipynb).
+
+**Updated dataset & Train/Test Split**
+
+- **Final dataset**: 7,784 samples (afterpre-processing)
+- **Split ratio**: 80/20 train/test
+- **Training samples:** 6227
+- **Test samples:** 1557
 
 ### Architecture Details:
 
